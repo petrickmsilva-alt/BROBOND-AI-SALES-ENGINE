@@ -1,0 +1,73 @@
+{
+  "name": "BROBOND Lead Qualification",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "brobond-lead",
+        "responseMode": "lastNode"
+      },
+      "id": "webhook-lead",
+      "name": "Lead Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [260, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=http://api:8000/api/v1/leads",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $json.token }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ name: $json.name, email: $json.email, company: $json.company, source: 'n8n' }) }}",
+        "options": {}
+      },
+      "id": "create-lead",
+      "name": "Create Lead",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [520, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=http://api:8000/api/v1/leads/{{ $json.id }}/qualify",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $('Lead Webhook').item.json.token }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "qualify-lead",
+      "name": "Qualify Lead",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [780, 300]
+    }
+  ],
+  "connections": {
+    "Lead Webhook": {
+      "main": [[{ "node": "Create Lead", "type": "main", "index": 0 }]]
+    },
+    "Create Lead": {
+      "main": [[{ "node": "Qualify Lead", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": { "executionOrder": "v1" },
+  "active": false,
+  "tags": ["brobond"]
+}
