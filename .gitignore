@@ -28,3 +28,7 @@ npm-debug.log*
 dist/
 build/
 coverage/
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml

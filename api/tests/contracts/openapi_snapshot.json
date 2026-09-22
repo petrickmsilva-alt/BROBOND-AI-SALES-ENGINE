@@ -1,0 +1,59 @@
+{
+  "openapi": "3.1.0",
+  "paths": {
+    "/": [
+      "GET"
+    ],
+    "/api/v1/auth/login": [
+      "POST"
+    ],
+    "/api/v1/auth/me": [
+      "GET"
+    ],
+    "/api/v1/auth/register": [
+      "POST"
+    ],
+    "/api/v1/clientes": [
+      "GET",
+      "POST"
+    ],
+    "/api/v1/clientes/{cliente_id}": [
+      "DELETE",
+      "GET",
+      "PUT"
+    ],
+    "/api/v1/dashboard/pipeline": [
+      "GET"
+    ],
+    "/api/v1/dashboard/summary": [
+      "GET"
+    ],
+    "/api/v1/health": [
+      "GET"
+    ],
+    "/api/v1/leads": [
+      "GET",
+      "POST"
+    ],
+    "/api/v1/leads/{lead_id}": [
+      "GET"
+    ],
+    "/api/v1/leads/{lead_id}/qualify": [
+      "POST"
+    ],
+    "/api/v1/leads/{lead_id}/status": [
+      "PATCH"
+    ],
+    "/api/v1/produtos": [
+      "GET",
+      "POST"
+    ],
+    "/api/v1/produtos/{produto_id}": [
+      "GET",
+      "PUT"
+    ],
+    "/health": [
+      "GET"
+    ]
+  }
+}

@@ -8,9 +8,9 @@ Create Date: 2026-09-21
 from collections.abc import Sequence
 
 import sqlalchemy as sa
-from sqlalchemy.dialects import postgresql
 
 from alembic import op
+from app.infrastructure.db.types import GUID
 
 revision: str = "0001"
 down_revision: str | None = None
@@ -21,7 +21,7 @@ depends_on: str | Sequence[str] | None = None
 def upgrade() -> None:
     op.create_table(
         "users",
-        sa.Column("id", postgresql.UUID(as_uuid=True), primary_key=True),
+        sa.Column("id", GUID(), primary_key=True),
         sa.Column("email", sa.String(length=320), nullable=False),
         sa.Column("full_name", sa.String(length=255), nullable=False),
         sa.Column("hashed_password", sa.String(length=255), nullable=False),
@@ -38,7 +38,7 @@ def upgrade() -> None:
 
     op.create_table(
         "leads",
-        sa.Column("id", postgresql.UUID(as_uuid=True), primary_key=True),
+        sa.Column("id", GUID(), primary_key=True),
         sa.Column("name", sa.String(length=255), nullable=False),
         sa.Column("email", sa.String(length=320), nullable=False),
         sa.Column("company", sa.String(length=255), nullable=True),
@@ -49,7 +49,7 @@ def upgrade() -> None:
         sa.Column("notes", sa.Text(), nullable=True),
         sa.Column(
             "owner_id",
-            postgresql.UUID(as_uuid=True),
+            GUID(),
             sa.ForeignKey("users.id", ondelete="SET NULL"),
             nullable=True,
         ),
