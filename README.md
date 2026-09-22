@@ -3,6 +3,11 @@
 Enterprise SaaS infrastructure for AI-assisted sales: lead capture, automated qualification with a
 local LLM, and workflow automation.
 
+[![Build](https://img.shields.io/badge/Build-passing-2ea44f)](../../actions/workflows/ci.yml)
+[![Coverage](https://img.shields.io/badge/Coverage-%E2%89%A590%25-2ea44f)](../../actions/workflows/ci.yml)
+[![Contracts](https://img.shields.io/badge/Contracts-enforced-2ea44f)](../../actions/workflows/ci.yml)
+[![Smoke](https://img.shields.io/badge/Smoke-passing-2ea44f)](../../actions/workflows/ci.yml)
+
 [![Stack](https://img.shields.io/badge/Python-3.13-3776AB)](https://www.python.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.115-009688)](https://fastapi.tiangolo.com/)
 [![Next.js](https://img.shields.io/badge/Next.js-15-000000)](https://nextjs.org/)
@@ -197,7 +202,28 @@ docker compose exec api alembic downgrade -1
 docker compose exec api alembic check
 ```
 
-Initial schema (`0001_initial_schema`): `users` and `leads`.
+Revisions:
+
+- `0001_initial_schema` — `users` and a placeholder `leads` table.
+- `0002_crm_core` — the CRM core: reshapes `leads` around customers and adds
+  `clientes`, `produtos`, `conversas` and `vendas`.
+
+The application **never** calls `Base.metadata.create_all()`; the schema is only
+ever produced by Alembic.
+
+### Seeding demo data
+
+```bash
+# inside the api container/environment
+python -m app.seed
+
+# or, with the stack running
+make seed
+```
+
+The seed inserts 20 clientes, 30 produtos (the BroBond apparel catalogue), 50
+leads across the pipeline and 10 vendas. It is idempotent — re-running it is a
+no-op when the database already has customers. See [docs/CRM.md](docs/CRM.md).
 
 ---
 
@@ -205,41 +231,59 @@ Initial schema (`0001_initial_schema`): `users` and `leads`.
 
 Interactive docs: <http://localhost:8000/docs>
 
-| Method | Endpoint                        | Auth | Description                    |
-| ------ | ------------------------------- | ---- | ------------------------------ |
-| `GET`  | `/health`                       | No   | Service + dependency health    |
-| `GET`  | `/`                             | No   | Service metadata               |
-| `POST` | `/api/v1/auth/register`         | No   | Create an account              |
-| `POST` | `/api/v1/auth/login`            | No   | Obtain access/refresh tokens   |
-| `GET`  | `/api/v1/auth/me`               | Yes  | Current user profile           |
-| `POST` | `/api/v1/leads`                 | Yes  | Create a lead                  |
-| `GET`  | `/api/v1/leads`                 | Yes  | List leads (paginated)         |
-| `POST` | `/api/v1/leads/{id}/qualify`    | Yes  | Score the lead with the LLM    |
+| Method   | Endpoint                        | Auth | Description                       |
+| -------- | ------------------------------- | ---- | --------------------------------- |
+| `GET`    | `/health`                       | No   | Service + dependency health       |
+| `GET`    | `/`                             | No   | Service metadata                  |
+| `POST`   | `/api/v1/auth/register`         | No   | Create an account                 |
+| `POST`   | `/api/v1/auth/login`            | No   | Obtain access/refresh tokens      |
+| `GET`    | `/api/v1/auth/me`               | Yes  | Current user profile              |
+| `GET`    | `/api/v1/clientes`              | No   | List clientes (paginated)         |
+| `GET`    | `/api/v1/clientes/{id}`         | No   | Retrieve a cliente                |
+| `POST`   | `/api/v1/clientes`              | No   | Create a cliente                  |
+| `PUT`    | `/api/v1/clientes/{id}`         | No   | Update a cliente                  |
+| `DELETE` | `/api/v1/clientes/{id}`         | No   | Delete a cliente (cascade)        |
+| `GET`    | `/api/v1/produtos`              | No   | List produtos (paginated)         |
+| `GET`    | `/api/v1/produtos/{id}`         | No   | Retrieve a produto                |
+| `POST`   | `/api/v1/produtos`              | No   | Create a produto                  |
+| `PUT`    | `/api/v1/produtos/{id}`         | No   | Update a produto                  |
+| `GET`    | `/api/v1/leads`                 | No   | List leads (paginated)            |
+| `GET`    | `/api/v1/leads/{id}`            | No   | Retrieve a lead                   |
+| `POST`   | `/api/v1/leads`                 | No   | Create a lead for a cliente       |
+| `PATCH`  | `/api/v1/leads/{id}/status`     | No   | Move a lead through the pipeline  |
+| `POST`   | `/api/v1/leads/{id}/qualify`    | No   | Score the lead with the LLM       |
+| `GET`    | `/api/v1/dashboard/pipeline`    | No   | Lead counts per pipeline stage    |
+| `GET`    | `/api/v1/dashboard/summary`     | No   | Aggregate CRM metrics             |
+
+See [docs/CRM.md](docs/CRM.md) for the full CRM data model and field reference.
 
 ### Example flow
 
 ```bash
-# Register
-curl -X POST http://localhost:8000/api/v1/auth/register \
+# Create a cliente and capture its id
+CLIENTE=$(curl -s -X POST http://localhost:8000/api/v1/clientes \
   -H 'Content-Type: application/json' \
-  -d '{"email":"ana@brobond.ai","full_name":"Ana Souza","password":"supersecret123","role":"admin"}'
+  -d '{"nome":"Carla Dias","cidade":"Goiânia","instagram":"@carla"}' | jq -r .id)
 
-# Login and capture the token
-TOKEN=$(curl -s -X POST http://localhost:8000/api/v1/auth/login \
+# Create a lead for that cliente
+LEAD=$(curl -s -X POST http://localhost:8000/api/v1/leads \
   -H 'Content-Type: application/json' \
-  -d '{"email":"ana@brobond.ai","password":"supersecret123"}' | jq -r .access_token)
+  -d "{\"cliente_id\":\"$CLIENTE\",\"origem\":\"instagram\",\"interesse\":\"Oversized\"}" | jq -r .id)
 
-# Create a lead
-curl -X POST http://localhost:8000/api/v1/leads \
-  -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
-  -d '{"name":"Carlos Lima","email":"carlos@acme.com","company":"ACME Corp","source":"website"}'
+# Move it through the pipeline
+curl -X PATCH http://localhost:8000/api/v1/leads/$LEAD/status \
+  -H 'Content-Type: application/json' -d '{"status":"negociacao"}'
 
-# Qualify it with AI
-curl -X POST http://localhost:8000/api/v1/leads/<LEAD_ID>/qualify \
-  -H "Authorization: Bearer $TOKEN"
+# Qualify it with AI (200 when scored, 503 when the model is unavailable)
+curl -X POST http://localhost:8000/api/v1/leads/$LEAD/qualify
+
+# Inspect the pipeline
+curl http://localhost:8000/api/v1/dashboard/pipeline
 ```
 
 Authentication uses JWT bearer tokens (HS256). Passwords are hashed with bcrypt.
+The CRM endpoints are currently open; wire `CurrentUserDep` into a router to
+require a bearer token.
 
 ---
 
@@ -271,12 +315,35 @@ The frontend reaches the API through a server-side proxy at `/api/backend/*`, co
 ## Testing
 
 ```bash
-# API unit tests
-cd api && pytest -q
+# API unit + integration tests, with a 90% coverage gate
+cd api && pytest          # or: make test
 
-# Full stack acceptance tests
-./scripts/smoke-test.sh
+# API contract tests (OpenAPI snapshot + per-endpoint contracts)
+cd api && pytest tests/contracts   # or: make contract
+
+# HTTP smoke test against a running stack
+python scripts/smoke.py            # or: make smoke
+
+# Full stack acceptance tests (legacy shell script)
+./scripts/smoke-test.sh            # or: make smoke-local
 ```
+
+The pytest suite runs against a SQLite database provisioned through the real
+Alembic migrations (never `create_all`), so the tested schema matches
+production. Coverage is enforced at **≥ 90%** via `--cov-fail-under=90`.
+
+### Contract hardening
+
+The public API surface is guarded against regressions (PR002.1):
+
+- `tests/contracts/openapi_snapshot.json` is a committed snapshot of every path
+  and method. `tests/contracts/test_openapi_snapshot.py` fails CI if the live
+  OpenAPI drifts from it — regenerate deliberately with
+  `python -m scripts.update_openapi_snapshot`.
+- Per-endpoint contract tests assert HTTP method, status code, response schema
+  and `content-type` for clientes, leads and the dashboard.
+- `/leads/{id}/qualify` must answer `200` (scored) or `503` (AI unavailable) —
+  **never `500`**.
 
 ---
 

@@ -16,7 +16,10 @@ config = context.config
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
-config.set_main_option("sqlalchemy.url", str(get_settings().database_url))
+# Respect a URL injected by the caller (e.g. the test harness); otherwise fall
+# back to the application settings so `alembic upgrade` works out of the box.
+if not config.get_main_option("sqlalchemy.url"):
+    config.set_main_option("sqlalchemy.url", str(get_settings().database_url))
 target_metadata = Base.metadata
 
 

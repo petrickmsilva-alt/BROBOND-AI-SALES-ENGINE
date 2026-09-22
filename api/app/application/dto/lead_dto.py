@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from app.domain.entities.lead import LeadStatus
 
@@ -12,11 +12,17 @@ from app.domain.entities.lead import LeadStatus
 class LeadCreateRequest(BaseModel):
     """Payload used to register a lead."""
 
-    name: str = Field(min_length=2, max_length=255)
-    email: EmailStr
-    company: str | None = Field(default=None, max_length=255)
-    phone: str | None = Field(default=None, max_length=32)
-    source: str | None = Field(default=None, max_length=64)
+    cliente_id: str
+    origem: str | None = Field(default=None, max_length=64)
+    interesse: str | None = Field(default=None, max_length=255)
+    observacao: str | None = None
+    status: LeadStatus = LeadStatus.NOVO
+
+
+class LeadStatusUpdateRequest(BaseModel):
+    """Payload used to move a lead through the pipeline."""
+
+    status: LeadStatus
 
 
 class LeadResponse(BaseModel):
@@ -25,15 +31,20 @@ class LeadResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: str
-    name: str
-    email: EmailStr
-    company: str | None
-    phone: str | None
-    source: str | None
-    status: LeadStatus
+    cliente_id: str
+    origem: str | None
     score: int
-    notes: str | None
+    status: LeadStatus
+    interesse: str | None
+    observacao: str | None
     created_at: datetime
+
+
+class LeadListResponse(BaseModel):
+    """Paginated collection of leads."""
+
+    total: int
+    items: list[LeadResponse]
 
 
 class LeadScoreResponse(BaseModel):
